@@ -1,2 +1,8 @@
 syntax: glob
 pcb/gerbers/
+ccs_workspace/.jxbrowser-data/
+ccs_workspace/.metadata/
+ccs_workspace/hwtest1/
+ccs_workspace/eusci_a_spi_ex1_master
+ccs_workspace/halloween2017/.launches/
+ccs_workspace/halloween2017/Debug/
