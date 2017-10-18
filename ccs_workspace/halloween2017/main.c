@@ -46,7 +46,9 @@
 #define CLOCK_SPEED_KHZ 1000
 #define SCAN_SPEED_HZ 600
 
-volatile uint8_t f_second = 0;
+#define DECR_UNITS 20 // 20ths of seconds
+
+volatile uint8_t f_decrement = 0;
 volatile uint8_t f_flicker_tick = 0;
 
 volatile uint8_t bulb=0;
@@ -54,6 +56,9 @@ volatile uint16_t disp_num = 0;
 volatile uint16_t second_parts = 0;
 volatile uint16_t flicker_parts = SCAN_SPEED_HZ;
 uint8_t brightness = MAX_BRIGHTNESS/2;
+uint8_t decrement_rate = 3*DECR_UNITS;
+
+uint32_t clock = 0;
 
 void delay_ms(uint16_t ms) {
     while (ms--)
@@ -183,6 +188,7 @@ void main(void)
     __bis_SR_register(LPM0_bits + GIE);
 
     while (1) {
+
         if (f_flicker_tick) {
             f_flicker_tick = 0;
 
@@ -195,23 +201,46 @@ void main(void)
             case 1:
                 brightness++;
                 break;
+            case 2:
+                if (!disp_num)
+                    brightness = 0;
             }
 
             // Keep within valid bounds:
-            if (!brightness)
+            if (!brightness && disp_num)
                 brightness = 1;
             else if (brightness > MAX_BRIGHTNESS)
                 brightness = MAX_BRIGHTNESS;
 
-            // Pick next time to flicker, 1 second +/- 0.5 seconds:
+            if (P1IN & KEY_PIN)
+                brightness = MAX_BRIGHTNESS;
+
+            // Pick next time to flicker, 0.25s - 0.075s
             flicker_parts = SCAN_SPEED_HZ/4 + (rand()%(SCAN_SPEED_HZ/2));
         }
 
-        if (f_second) {
-            f_second = 0;
-            disp_num = (disp_num+1) % 1000;
-            P2OUT |= L_IN;
-            P2OUT &= ~L_OUT;
+        if (f_decrement) {
+            f_decrement = 0;
+
+            if (P1IN & KEY_PIN && disp_num < 999) {
+                // the key is ON, so we are CHARGING!
+                disp_num++;
+                P2OUT |= L_IN;
+                P2OUT ^= L_OUT;
+                decrement_rate = 1;
+            } else {
+                // Discharging:
+                if (disp_num) {
+                    disp_num = (disp_num+999) % 1000;
+                    P2OUT |= L_IN;
+                    P2OUT &= ~L_OUT;
+                    decrement_rate = 1 + rand() % (DECR_UNITS * 10);
+                } else {
+                    P2OUT &= ~L_IN;
+                    P2OUT ^= L_OUT;
+                    decrement_rate = DECR_UNITS/2;
+                }
+            }
         }
     }
 }
@@ -220,10 +249,8 @@ void main(void)
 __interrupt void TIMERB0_ISR(void)
 {
     if (TB0IV | TBIFG) {
-        uint8_t dimness = MAX_BRIGHTNESS-brightness;
 
-
-        if (second_parts % MAX_BRIGHTNESS < dimness) {
+        if (second_parts % MAX_BRIGHTNESS < MAX_BRIGHTNESS-brightness) {
             // we should be OFF.
             all_off();
         } else {
@@ -233,18 +260,19 @@ __interrupt void TIMERB0_ISR(void)
             if (bulb == 3) bulb = 0;
         }
 
-        P2OUT |= L_OUT;
-
-        // Count up:
         second_parts++;
-        if (second_parts == SCAN_SPEED_HZ) {
+        if (second_parts == SCAN_SPEED_HZ*decrement_rate/DECR_UNITS) {
             second_parts = 0;
-            f_second = 1;
+            f_decrement = 1;
             __bic_SR_register_on_exit(LPM0_bits);
         }
 
         if (!flicker_parts--) {
             f_flicker_tick = 1;
+            if (disp_num)
+                P2OUT |= L_OUT;
         }
+
+        __bic_SR_register_on_exit(LPM0_bits);
     }
 }
