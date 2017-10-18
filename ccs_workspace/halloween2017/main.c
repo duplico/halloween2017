@@ -42,12 +42,18 @@
  *
  */
 
+#define MAX_BRIGHTNESS 5
+#define CLOCK_SPEED_KHZ 1000
+#define SCAN_SPEED_HZ 600
+
 volatile uint8_t f_second = 0;
+volatile uint8_t f_flicker_tick = 0;
+
 volatile uint8_t bulb=0;
 volatile uint16_t disp_num = 0;
-volatile uint8_t second_parts = 0;
-
-#define CLOCK_SPEED_KHZ 1000
+volatile uint16_t second_parts = 0;
+volatile uint16_t flicker_parts = SCAN_SPEED_HZ;
+uint8_t brightness = MAX_BRIGHTNESS/2;
 
 void delay_ms(uint16_t ms) {
     while (ms--)
@@ -83,6 +89,10 @@ void send_digit(uint8_t digit, uint8_t tube) {
     send_frame(fr);
 }
 
+void all_off() {
+    send_frame(0b1111111111000000);
+}
+
 uint16_t ten_pow(uint8_t i) {
     switch(i) {
     case 0:
@@ -98,24 +108,33 @@ uint16_t ten_pow(uint8_t i) {
     }
 }
 
-void main(void)
-{
-    //Stop watchdog timer
-    WDTCTL = WDTPW | WDTHOLD;
-    /*
-     * Disable the GPIO power-on default high-impedance mode to activate
-     * previously configured port settings
-     */
-    PM5CTL0 &= ~LOCKLPM5;
-
+void init_clocks() {
     // Setup clocks:
     // Default: MCLK and SMCLK using DCOCLKDIV at 1 MHz
     //          ACLK uses REFO (~32k)
     // This is fine.
+}
 
+void init_timer()
+{
+    Timer_B_initUpModeParam param = { 0 };
+    param.captureCompareInterruptEnable_CCR0_CCIE =
+            TIMER_B_CCIE_CCR0_INTERRUPT_DISABLE;
+    param.clockSource = TIMER_B_CLOCKSOURCE_ACLK;
+    param.clockSourceDivider = TIMER_B_CLOCKSOURCE_DIVIDER_1;
+    param.startTimer = true;
+    param.timerClear = TIMER_B_DO_CLEAR;
+    param.timerInterruptEnable_TBIE = TIMER_B_TBIE_INTERRUPT_ENABLE;
+    param.timerPeriod = 32767 / SCAN_SPEED_HZ;
+
+    Timer_B_initUpMode(TIMER_B0_BASE, &param);
+}
+
+void init_gpio() {
     // NLE, CLK, TX are outputs:
     P1DIR |= NLE_PIN | CLK_PIN | TX_PIN;
-    P1DIR &= ~KEY_PIN; // KEY is an input, external pull-whatever.
+    // KEY is an input:
+    P1DIR &= ~KEY_PIN;
 
     // L_IN and L_OUT are outputs:
     P2DIR |= L_IN + L_OUT;
@@ -125,101 +144,107 @@ void main(void)
     P1SEL0 &= ~(NLE_PIN | KEY_PIN);
     P1OUT |= NLE_PIN; // NLE is idle high.
 
+    // LEDs:
     // L_IN and L_OUT are GPIO, low:
     P2SEL1 &= ~(L_IN + L_OUT);
     P2SEL0 &= ~(L_IN + L_OUT);
     P1OUT &= ~(L_IN + L_OUT);
+}
 
+void init_serial() {
+    // We are just bit-banging, so...
     // CLK and TX
     P1SEL1 &= ~(CLK_PIN | TX_PIN);
     P1SEL0 &= ~(CLK_PIN | TX_PIN);
 
     P1OUT &= ~(CLK_PIN | TX_PIN);
+}
 
-    Timer_B_initUpModeParam param = {0};
-    param.captureCompareInterruptEnable_CCR0_CCIE = TIMER_B_CCIE_CCR0_INTERRUPT_DISABLE;
-    param.clockSource = TIMER_B_CLOCKSOURCE_ACLK;
-    param.clockSourceDivider = TIMER_B_CLOCKSOURCE_DIVIDER_1;
-    param.startTimer = true;
-    param.timerClear = TIMER_B_DO_CLEAR;
-    param.timerInterruptEnable_TBIE = TIMER_B_TBIE_INTERRUPT_ENABLE; // TBIFG in TBxIV
-    param.timerPeriod = 32767 / 200; // 200 Hz
+void init() {
+    /*
+     * Disable the GPIO power-on default high-impedance mode to activate
+     * previously configured port settings
+     */
+    PM5CTL0 &= ~LOCKLPM5;
 
-    Timer_B_initUpMode(TIMER_B0_BASE, &param);
+    init_clocks();
+    init_gpio();
+    init_serial();
+    init_timer();
+}
+
+void main(void)
+{
+    //Stop watchdog timer
+    WDTCTL = WDTPW | WDTHOLD;
+
+    init();
 
     __bis_SR_register(LPM0_bits + GIE);
 
     while (1) {
+        if (f_flicker_tick) {
+            f_flicker_tick = 0;
+
+            // Randomly increase or decrease brightness.
+            uint8_t dir = rand() % 3;
+            switch(dir) {
+            case 0:
+                brightness--;
+                break;
+            case 1:
+                brightness++;
+                break;
+            }
+
+            // Keep within valid bounds:
+            if (!brightness)
+                brightness = 1;
+            else if (brightness > MAX_BRIGHTNESS)
+                brightness = MAX_BRIGHTNESS;
+
+            // Pick next time to flicker, 1 second +/- 0.5 seconds:
+            flicker_parts = SCAN_SPEED_HZ/4 + (rand()%(SCAN_SPEED_HZ/2));
+        }
+
         if (f_second) {
             f_second = 0;
-
             disp_num = (disp_num+1) % 1000;
-            P2OUT ^= L_IN;
-            P2OUT |= L_OUT;
+            P2OUT |= L_IN;
+            P2OUT &= ~L_OUT;
         }
     }
-
-
-    // Old code:
-    /*
-
-
-    // CLK and TX are primary peripherals (0b01) - UCA0.
-    P1SEL1 &= ~(CLK_PIN | TX_PIN);
-    P2SEL0 |= CLK_PIN | TX_PIN;
-
-    // Terminate unused pins to outputs:
-    P1DIR |= BIT2|BIT5|BIT6|BIT7;
-    P2DIR |= BIT0|BIT1|BIT6|BIT7;
-
-
-    // We'll set up in SPI master mode, with only MOSI and CLK in use.
-    UCA0CTLW0 |= UCSWRST__ENABLE; // shut down for a mo (enable rst)
-
-    UCA0CTLW0 = UCCKPH_1 | UCCKPL__LOW | UCMSB_1 | UC7BIT__8BIT |
-            UCMST__MASTER | UCMODE_0 | UCSYNC__SYNC |
-            UCSSEL__SMCLK | UCSWRST__ENABLE;
-
-    // Max frequency for HV509 is 500 kHz. Let's divide SMCLK, which is 1 MHz,
-    //  by 4, just for some headroom, to get us to 250 kHz.
-    UCA0BRW = 4;
-
-    // Disable interrupts.
-    UCA0IE = 0;
-
-    // Take us out of reset to enable the SPI.
-    UCA0CTLW0 &= ~UCSWRST;
-
-    // Hang on a sec...
-    __delay_cycles(10000);
-
-    // Send zeros...
-    UCA0TXBUF = 0x00;
-    while (!(UCA0IFG & UCTXIFG));
-    UCA0TXBUF = 0x00;
-    while (!(UCA0IFG & UCTXIFG));
-
-    // 16 zeroes sent.
-    // Pulse nLE to clock it in.
-    P1OUT &= ~NLE_PIN; // NLE is asserted low
-    __delay_cycles(10);
-    P1OUT |= NLE_PIN; // back to idle high
-
-    while (1);
-    */
 }
 
 #pragma vector=TIMER0_B1_VECTOR
 __interrupt void TIMERB0_ISR(void)
 {
     if (TB0IV | TBIFG) {
-        send_digit((disp_num % ten_pow(bulb+1)) / ten_pow(bulb), bulb);
-        bulb = (bulb+1)%3;
+        uint8_t dimness = MAX_BRIGHTNESS-brightness;
+
+
+        if (second_parts % MAX_BRIGHTNESS < dimness) {
+            // we should be OFF.
+            all_off();
+        } else {
+            // We do a scan.
+            send_digit((disp_num % ten_pow(bulb+1)) / ten_pow(bulb), bulb);
+            bulb++;
+            if (bulb == 3) bulb = 0;
+        }
+
+        P2OUT |= L_OUT;
+
+        // Count up:
         second_parts++;
-        if (second_parts == 200) {
+        if (second_parts == SCAN_SPEED_HZ) {
             second_parts = 0;
             f_second = 1;
             __bic_SR_register_on_exit(LPM0_bits);
+        }
+
+        if (!flicker_parts--) {
+            f_flicker_tick = 1;
         }
     }
 }
