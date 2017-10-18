@@ -6,3 +6,6 @@ ccs_workspace/hwtest1/
 ccs_workspace/eusci_a_spi_ex1_master
 ccs_workspace/halloween2017/.launches/
 ccs_workspace/halloween2017/Debug/
+ccs_workspace/timer_b_ex1_continuousModeCCR0
+ccs_workspace/timer_b_ex4_upModeOperation
+ccs_workspace/RemoteSystemsTempFiles/.project
