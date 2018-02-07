@@ -38,9 +38,9 @@ EELAYER END
 $Descr USLetter 11000 8500
 encoding utf-8
 Sheet 1 1
-Title ""
-Date ""
-Rev ""
+Title "Nixie Halloween Prop"
+Date "2017-10-19"
+Rev "RC2"
 Comp ""
 Comment1 ""
 Comment2 ""
@@ -1002,4 +1002,12 @@ Text GLabel 6000 6300 2    60   Input ~ 0
 L_OUT
 Text GLabel 2650 6000 1    60   Input ~ 0
 L_IN
+Text Notes 6400 7000 0    60   ~ 0
+VBAT @ 3.6V nominal
+Text Notes 6400 7100 0    60   ~ 0
+VPP @ 170V
+Text Notes 6300 6900 0    60   ~ 12
+Notes
+Text Notes 6400 7200 0    60   ~ 0
+<20k series resistor recommended for daylight viewing
 $EndSCHEMATC
