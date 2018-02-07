@@ -1,7 +1,10 @@
-#include "msp430fr2111.h"
-#include "driverlib.h"
 #include <stdint.h>
 #include <stdlib.h>
+
+#include "msp430fr2111.h"
+#include "driverlib.h"
+
+#include "util.h"
 
 // Here's our Halloween setup:
 
@@ -42,6 +45,8 @@
  *
  */
 
+#define STARTING_CHARGE 50
+
 #define MAX_BRIGHTNESS 5
 #define CLOCK_SPEED_KHZ 1000
 #define SCAN_SPEED_HZ 600
@@ -52,66 +57,22 @@ volatile uint8_t f_decrement = 0;
 volatile uint8_t f_flicker_tick = 0;
 
 volatile uint8_t bulb=0;
-volatile uint16_t disp_num = 0;
+volatile uint16_t disp_num = STARTING_CHARGE;
 volatile uint16_t second_parts = 0;
 volatile uint16_t flicker_parts = SCAN_SPEED_HZ;
 uint8_t brightness = MAX_BRIGHTNESS/2;
 uint8_t decrement_rate = 3*DECR_UNITS;
 
-uint32_t clock = 0;
+#define STATE_DISCHARGING 0
+#define STATE_CHARGING 1
+#define STATE_CHARGED 2
+#define STATE_DISCHARGED 3
 
-void delay_ms(uint16_t ms) {
-    while (ms--)
-        __delay_cycles(CLOCK_SPEED_KHZ);
-}
-
-void send_frame(uint16_t fr) {
-    for (int i=0; i<16; i++) {
-        // Set the output:
-        if (fr & (1 << (15-i)))
-            P1OUT |= TX_PIN;
-        else
-            P1OUT &= ~TX_PIN;
-//        __delay_cycles(CLOCK_SPEED_KHZ/500);
-        // Pulse the clock:
-        P1OUT |= CLK_PIN;
-//        __delay_cycles(CLOCK_SPEED_KHZ/500);
-        P1OUT &= ~CLK_PIN;
-    }
-    P1OUT &= ~NLE_PIN; // NLE is asserted low
-//    __delay_cycles(CLOCK_SPEED_KHZ/500);
-    P1OUT |= NLE_PIN; // back to idle high
-//    __delay_cycles(CLOCK_SPEED_KHZ/500);
-}
-
-void send_digit(uint8_t digit, uint8_t tube) {
-    uint16_t fr = 0b1111111111000000;
-    fr |= (1 << tube);
-    if (digit)
-        fr &= ~(0x0001 << (5+digit));
-    else
-        fr &= ~(0x0001 << 15);
-    send_frame(fr);
-}
-
-void all_off() {
-    send_frame(0b1111111111000000);
-}
-
-uint16_t ten_pow(uint8_t i) {
-    switch(i) {
-    case 0:
-        return 1;
-    case 1:
-        return 10;
-    case 2:
-        return 100;
-    case 3:
-        return 1000;
-    default:
-        return 0;
-    }
-}
+#if STARTING_CHARGE
+uint8_t global_state = STATE_DISCHARGING;
+#else
+uint8_t global_state = STATE_DISCHARGED;
+#endif
 
 void init_clocks() {
     // Setup clocks:

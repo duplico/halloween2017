@@ -49,9 +49,9 @@ module main_mask() {
     difference () {
         union() {
             translate([0,-7,0]) rotate([-48,0,0]) scale([1,1.75,1])
-                hollow_sphere(40, hollow=1, thickness=2);
+                hollow_sphere(40, hollow=1, thickness=2.1);
             translate([0,-37.5,0])
-                hollow_sphere(hollow=1, thickness=2);
+                hollow_sphere(hollow=1, thickness=2.1);
         }
         //translate([0,-37,0]) cylinder(d=37,h=100);
     }

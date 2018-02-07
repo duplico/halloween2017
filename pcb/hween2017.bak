@@ -38,9 +38,9 @@ EELAYER END
 $Descr USLetter 11000 8500
 encoding utf-8
 Sheet 1 1
-Title ""
-Date ""
-Rev ""
+Title "Nixie Halloween Prop"
+Date "2017-10-19"
+Rev "RC2"
 Comp ""
 Comment1 ""
 Comment2 ""
@@ -281,7 +281,7 @@ L R R3
 U 1 1 59CD6B0B
 P 4500 3550
 F 0 "R3" V 4580 3550 50  0000 C CNN
-F 1 "44 k" V 4500 3550 50  0000 C CNN
+F 1 "20 k" V 4500 3550 50  0000 C CNN
 F 2 "Resistors_SMD:R_0805_HandSoldering" V 4430 3550 50  0001 C CNN
 F 3 "" H 4500 3550 50  0001 C CNN
 	1    4500 3550
@@ -292,7 +292,7 @@ L R R2
 U 1 1 59CD6B7A
 P 4500 3350
 F 0 "R2" V 4580 3350 50  0000 C CNN
-F 1 "44 k" V 4500 3350 50  0000 C CNN
+F 1 "20 k" V 4500 3350 50  0000 C CNN
 F 2 "Resistors_SMD:R_0805_HandSoldering" V 4430 3350 50  0001 C CNN
 F 3 "" H 4500 3350 50  0001 C CNN
 	1    4500 3350
@@ -303,7 +303,7 @@ L R R1
 U 1 1 59CD6BC9
 P 4500 3150
 F 0 "R1" V 4580 3150 50  0000 C CNN
-F 1 "44 k" V 4500 3150 50  0000 C CNN
+F 1 "20 k" V 4500 3150 50  0000 C CNN
 F 2 "Resistors_SMD:R_0805_HandSoldering" V 4430 3150 50  0001 C CNN
 F 3 "" H 4500 3150 50  0001 C CNN
 	1    4500 3150
@@ -619,7 +619,7 @@ L R R6
 U 1 1 59DE79F6
 P 9850 3000
 F 0 "R6" V 9930 3000 50  0000 C CNN
-F 1 "100k" V 9850 3000 50  0000 C CNN
+F 1 "1 M" V 9850 3000 50  0000 C CNN
 F 2 "Resistors_SMD:R_0805_HandSoldering" V 9780 3000 50  0001 C CNN
 F 3 "" H 9850 3000 50  0001 C CNN
 	1    9850 3000
@@ -1002,4 +1002,12 @@ Text GLabel 6000 6300 2    60   Input ~ 0
 L_OUT
 Text GLabel 2650 6000 1    60   Input ~ 0
 L_IN
+Text Notes 6400 7000 0    60   ~ 0
+VBAT @ 3.6V nominal
+Text Notes 6400 7100 0    60   ~ 0
+VPP @ 170V
+Text Notes 6300 6900 0    60   ~ 12
+Notes
+Text Notes 6400 7200 0    60   ~ 0
+>20k series resistor recommended for daylight viewing
 $EndSCHEMATC
